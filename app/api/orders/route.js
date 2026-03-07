@@ -11,7 +11,7 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  if (!['dine_in', 'pickup'].includes(type)) {
+  if (!['dine_in', 'pickup', 'delivery'].includes(type)) {
     return NextResponse.json({ error: 'Invalid order type' }, { status: 400 })
   }
 

@@ -94,7 +94,7 @@ export default function OrdersPage() {
                         <p className="text-slate-300 text-sm">{order.customer_name}</p>
                       </div>
                       <span className="text-xs text-slate-400 bg-slate-600 px-2 py-1 rounded">
-                        {order.type === 'dine_in' ? `Table ${order.table_number}` : 'Pickup'}
+                        {order.type === 'dine_in' ? `Table ${order.table_number}` : order.type === 'delivery' ? 'Delivery' : 'Pickup'}
                       </span>
                     </div>
 

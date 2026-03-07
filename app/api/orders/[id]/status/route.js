@@ -25,7 +25,11 @@ export async function PATCH(req, { params }) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    const notFound = error.code === 'PGRST116'
+    return NextResponse.json({ error: notFound ? 'Order not found' : error.message },
+      { status: notFound ? 404 : 500 })
+  }
 
   return NextResponse.json({ data })
 }
