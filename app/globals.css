@@ -3,18 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --bg-primary:   #0f172a;
-    --bg-secondary: #1e293b;
-    --text-primary: #f1f5f9;
-  }
-
   body {
-    @apply bg-slate-900 text-slate-100 antialiased;
-  }
-
-  * {
-    @apply border-slate-700;
+    @apply antialiased;
   }
 }
 
@@ -45,7 +35,7 @@
   .badge-completed { @apply badge bg-slate-500/20 text-slate-400 border border-slate-500/30; }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar       { width: 6px; }
-::-webkit-scrollbar-track { background: #1e293b; }
-::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+/* Admin dark scrollbar */
+.admin-scroll ::-webkit-scrollbar       { width: 6px; }
+.admin-scroll ::-webkit-scrollbar-track { background: #1e293b; }
+.admin-scroll ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
