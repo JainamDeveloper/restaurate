@@ -5,33 +5,38 @@ import { motion }      from 'framer-motion'
 import Link            from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter()
+  const [name,     setName]     = useState('')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
+  const [confirm,  setConfirm]  = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
 
-  async function handleLogin(e) {
+  async function handleRegister(e) {
     e.preventDefault()
-    setLoading(true)
     setError('')
 
-    const res  = await fetch('/api/auth/login', {
+    if (password !== confirm) { setError('Passwords do not match'); return }
+    if (password.length < 6)  { setError('Password must be at least 6 characters'); return }
+
+    setLoading(true)
+    const res  = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, name }),
     })
     const data = await res.json()
     setLoading(false)
 
-    if (!res.ok) { setError(data.error || 'Invalid email or password'); return }
+    if (!res.ok) { setError(data.error || 'Registration failed'); return }
 
-    // Save customer name to localStorage for checkout pre-fill
-    if (data.name) localStorage.setItem('restaurate_customer_name', data.name)
+    // Save name for checkout pre-fill
+    if (name) localStorage.setItem('restaurate_customer_name', name)
 
-    router.push(data.role === 'admin' ? '/admin' : '/menu')
+    router.push('/menu')
   }
 
   const inputCls = 'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white transition-all'
@@ -48,13 +53,22 @@ export default function LoginPage() {
           <div className="w-14 h-14 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🍽️</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-gray-900">Create account</h1>
+          <p className="text-gray-500 text-sm mt-1">Join us and order your favourite food</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+            <input
+              type="text" className={inputCls}
+              placeholder="Your name"
+              value={name} onChange={e => setName(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
             <input
               type="email" required className={inputCls}
               placeholder="you@example.com"
@@ -63,11 +77,11 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Password *</label>
             <div className="relative">
               <input
                 type={showPwd ? 'text' : 'password'} required className={`${inputCls} pr-11`}
-                placeholder="••••••••"
+                placeholder="Min. 6 characters"
                 value={password} onChange={e => setPassword(e.target.value)}
               />
               <button type="button" onClick={() => setShowPwd(p => !p)}
@@ -77,6 +91,15 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password *</label>
+            <input
+              type="password" required className={inputCls}
+              placeholder="Repeat password"
+              value={confirm} onChange={e => setConfirm(e.target.value)}
+            />
+          </div>
+
           {error && (
             <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
               {error}
@@ -84,8 +107,8 @@ export default function LoginPage() {
           )}
 
           <button type="submit" disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all">
-            {loading ? 'Signing in…' : 'Sign In'}
+            className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all mt-2">
+            {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
 
@@ -96,17 +119,15 @@ export default function LoginPage() {
           <div className="flex-1 border-t border-gray-200" />
         </div>
 
-        {/* Guest */}
         <button onClick={() => router.push('/menu')}
           className="w-full py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-all">
           Continue as Guest
         </button>
 
-        {/* Register link */}
         <p className="text-center text-sm text-gray-500 mt-6">
-          Don't have an account?{' '}
-          <Link href="/register" className="text-amber-600 font-semibold hover:text-amber-700">
-            Create account
+          Already have an account?{' '}
+          <Link href="/login" className="text-amber-600 font-semibold hover:text-amber-700">
+            Sign in
           </Link>
         </p>
       </motion.div>

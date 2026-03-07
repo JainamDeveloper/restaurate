@@ -1,5 +1,5 @@
-import { NextResponse }        from 'next/server'
-import { createServerClient }  from '@supabase/ssr'
+import { NextResponse }       from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(req) {
   let res = NextResponse.next({ request: req })
@@ -23,21 +23,31 @@ export async function middleware(req) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const path    = req.nextUrl.pathname
-  const isAdmin = path.startsWith('/admin')
-  const isLogin = path === '/login'
+  const path      = req.nextUrl.pathname
+  const isAdmin   = path.startsWith('/admin')
+  const isLogin   = path === '/login'
+  const isRegister = path === '/register'
 
+  const adminEmails = (process.env.ADMIN_EMAILS || '')
+    .split(',').map(e => e.trim()).filter(Boolean)
+  const isAdminUser = user && adminEmails.includes(user.email)
+
+  // Protect /admin: must be logged in AND be an admin email
   if (isAdmin && !user) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
+  if (isAdmin && user && !isAdminUser) {
+    return NextResponse.redirect(new URL('/menu', req.url))
+  }
 
-  if (isLogin && user) {
-    return NextResponse.redirect(new URL('/admin', req.url))
+  // Redirect logged-in users away from /login and /register
+  if ((isLogin || isRegister) && user) {
+    return NextResponse.redirect(new URL(isAdminUser ? '/admin' : '/menu', req.url))
   }
 
   return res
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/login'],
+  matcher: ['/admin/:path*', '/login', '/register'],
 }

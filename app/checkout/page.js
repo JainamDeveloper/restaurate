@@ -30,9 +30,11 @@ export default function CheckoutPage() {
       const savedCart = JSON.parse(localStorage.getItem('restaurate_cart') || '[]')
       const savedType = localStorage.getItem('restaurate_order_type') || 'pickup'
       const savedLang = localStorage.getItem('restaurate_lang')
+      const savedName = localStorage.getItem('restaurate_customer_name')
       setCart(savedCart)
       setOrderType(savedType)
       if (savedLang === 'de' || savedLang === 'en') setLang(savedLang)
+      if (savedName) setName(savedName)
     } catch {}
   }, [])
 
