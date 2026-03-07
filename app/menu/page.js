@@ -1,25 +1,50 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { motion, AnimatePresence }       from 'framer-motion'
+import { useRouter }                     from 'next/navigation'
 import {
   ShoppingCart, Search, Plus, Minus, X,
-  Clock, Leaf, Flame, Globe, ClipboardList, ChevronRight
+  Clock, Leaf, Flame, Globe, ClipboardList, Trash2
 } from 'lucide-react'
+import { translations } from '@/lib/i18n'
 
 export default function MenuPage() {
+  const router = useRouter()
   const [menu, setMenu]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [activeTab, setActiveTab] = useState('all')
   const [cart, setCart]           = useState([])
+  const [cartLoaded, setCartLoaded] = useState(false)
   const [cartOpen, setCartOpen]   = useState(false)
   const [orderType, setOrderType] = useState('pickup')
-  const [tableNum, setTableNum]   = useState('')
-  const [customerName, setCustomerName] = useState('')
-  const [notes, setNotes]         = useState('')
-  const [placing, setPlacing]     = useState(false)
-  const [orderDone, setOrderDone] = useState(null)
-  const [ordersOpen, setOrdersOpen] = useState(false)
+  const [lang, setLang]           = useState('en')
+
+  const t = translations[lang]
+
+  // Load persisted cart + language from localStorage
+  useEffect(() => {
+    try {
+      const savedCart = JSON.parse(localStorage.getItem('restaurate_cart') || '[]')
+      const savedLang = localStorage.getItem('restaurate_lang')
+      if (savedCart.length) setCart(savedCart)
+      if (savedLang === 'de' || savedLang === 'en') setLang(savedLang)
+      const savedType = localStorage.getItem('restaurate_order_type')
+      if (savedType) setOrderType(savedType)
+    } catch {}
+    setCartLoaded(true)
+  }, [])
+
+  // Persist cart to localStorage
+  useEffect(() => {
+    if (!cartLoaded) return
+    localStorage.setItem('restaurate_cart', JSON.stringify(cart))
+  }, [cart, cartLoaded])
+
+  // Persist order type
+  useEffect(() => {
+    localStorage.setItem('restaurate_order_type', orderType)
+  }, [orderType])
 
   useEffect(() => {
     fetch('/api/menu')
@@ -27,8 +52,10 @@ export default function MenuPage() {
       .then(d => { setMenu(d.data || []); setLoading(false) })
   }, [])
 
-  // Flatten all items for search + "All Items" view
-  const allItems = useMemo(() => menu.flatMap(c => c.items.map(i => ({ ...i, categoryName: c.name }))), [menu])
+  const allItems = useMemo(
+    () => menu.flatMap(c => c.items.map(i => ({ ...i, categoryName: c.name }))),
+    [menu]
+  )
 
   const filteredItems = useMemo(() => {
     const base = activeTab === 'all'
@@ -36,7 +63,9 @@ export default function MenuPage() {
       : allItems.filter(i => i.category_id === activeTab)
     if (!search.trim()) return base
     const q = search.toLowerCase()
-    return base.filter(i => i.name.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q))
+    return base.filter(i =>
+      i.name.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q)
+    )
   }, [allItems, activeTab, search])
 
   function addToCart(item) {
@@ -48,59 +77,39 @@ export default function MenuPage() {
   }
 
   function updateQty(id, delta) {
-    setCart(prev => prev.map(i => i.id === id ? { ...i, qty: i.qty + delta } : i).filter(i => i.qty > 0))
+    setCart(prev =>
+      prev.map(i => i.id === id ? { ...i, qty: i.qty + delta } : i).filter(i => i.qty > 0)
+    )
+  }
+
+  function removeFromCart(id) {
+    setCart(prev => prev.filter(i => i.id !== id))
+  }
+
+  function toggleLang() {
+    const next = lang === 'en' ? 'de' : 'en'
+    setLang(next)
+    localStorage.setItem('restaurate_lang', next)
   }
 
   const totalItems = cart.reduce((s, i) => s + i.qty, 0)
-  const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0)
+  const subtotal   = cart.reduce((s, i) => s + i.price * i.qty, 0)
+  const tax        = subtotal * 0.07
+  const deliveryFee = orderType === 'delivery' ? 2.50 : 0
+  const total      = subtotal + tax + deliveryFee
 
-  async function placeOrder() {
-    if (!customerName.trim()) return alert('Please enter your name')
-    if (orderType === 'dine_in' && !tableNum.trim()) return alert('Please enter table number')
-    setPlacing(true)
-    const res = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: orderType, table_number: tableNum || null,
-        customer_name: customerName, kitchen_notes: notes || null,
-        items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.qty })),
-      }),
-    })
-    const data = await res.json()
-    setPlacing(false)
-    if (res.ok) { setOrderDone(data.data.order_number); setCart([]); setCartOpen(false) }
-    else alert(data.error || 'Failed to place order')
+  function goToCheckout() {
+    setCartOpen(false)
+    router.push('/checkout')
   }
 
-  // ── Order Success Screen ──────────────────────────────────────────────
-  if (orderDone) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl p-8 text-center max-w-sm w-full shadow-lg">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-4xl">🎉</span>
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Placed!</h2>
-        <p className="text-gray-500 mb-3">Your order number</p>
-        <p className="text-3xl font-mono font-bold text-amber-500 mb-2">{orderDone}</p>
-        <p className="text-gray-400 text-sm mb-6">
-          {orderType === 'dine_in' ? `We'll bring it to Table ${tableNum}` : 'Please collect at the counter when ready'}
-        </p>
-        <button onClick={() => setOrderDone(null)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-xl transition-all">
-          Order More
-        </button>
-      </motion.div>
-    </div>
-  )
-
-  // ── Main Menu ─────────────────────────────────────────────────────────
+  // ── Main Menu ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50" style={{ colorScheme: 'light' }}>
 
       {/* Announcement Banner */}
       <div className="bg-amber-500 text-white text-center text-sm py-2.5 px-4 font-medium">
-        🚚 Free delivery on orders over €30 &nbsp;|&nbsp; Use code: <strong>WELCOME10</strong> for 10% off your first order!
+        {t.banner}
       </div>
 
       {/* Header */}
@@ -110,22 +119,31 @@ export default function MenuPage() {
             <div className="w-9 h-9 bg-amber-500 rounded-lg flex items-center justify-center">
               <span className="text-white text-lg">🍽</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Our Menu</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t.ourMenu}</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setOrdersOpen(true)}
+          <div className="flex items-center gap-2">
+            <button
               className="hidden sm:flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all">
               <ClipboardList size={16} />
-              My Orders
+              {t.myOrders}
             </button>
-            <button className="hidden sm:flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-gray-700 text-sm font-medium hover:bg-gray-50">
-              <Globe size={16} />
-              EN
+            {/* Language Toggle */}
+            <button
+              onClick={toggleLang}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-all"
+            >
+              <Globe size={15} />
+              <span>{lang === 'en' ? 'EN' : 'DE'}</span>
+              <span className="text-gray-300">|</span>
+              <span className="text-gray-400">{lang === 'en' ? 'DE' : 'EN'}</span>
             </button>
-            <button onClick={() => setCartOpen(true)}
-              className="relative flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+            {/* Cart Button */}
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+            >
               <ShoppingCart size={16} />
-              Cart
+              {t.cart}
               {totalItems > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
                   {totalItems}
@@ -143,7 +161,7 @@ export default function MenuPage() {
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search for dishes..."
+            placeholder={t.searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all"
@@ -151,13 +169,13 @@ export default function MenuPage() {
         </div>
 
         {/* Category Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-8">
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-8 scrollbar-hide">
           <button
             onClick={() => setActiveTab('all')}
             className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap flex-shrink-0 transition-all
               ${activeTab === 'all' ? 'bg-amber-500 text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:border-amber-300'}`}
           >
-            All Items
+            {t.allItems}
           </button>
           {menu.map(cat => (
             <button
@@ -188,13 +206,10 @@ export default function MenuPage() {
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🍽️</div>
-            <p className="text-gray-500">No items found</p>
+            <p className="text-gray-500">{t.noItemsFound}</p>
           </div>
         ) : (
-          <motion.div
-            layout
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-          >
+          <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <AnimatePresence>
               {filteredItems.map(item => {
                 const inCart = cart.find(i => i.id === item.id)
@@ -207,7 +222,6 @@ export default function MenuPage() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100"
                   >
-                    {/* Image */}
                     <div className="relative h-48 bg-gray-100 overflow-hidden">
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name}
@@ -217,49 +231,43 @@ export default function MenuPage() {
                       )}
                     </div>
 
-                    {/* Content */}
                     <div className="p-4">
-                      {/* Name + Price */}
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold text-gray-900 text-base leading-tight flex-1 pr-2">{item.name}</h3>
                         <span className="font-bold text-amber-500 text-base whitespace-nowrap">€{Number(item.price).toFixed(2)}</span>
                       </div>
 
-                      {/* Badges */}
                       <div className="flex gap-1.5 mb-2 flex-wrap">
                         {item.is_veg && (
                           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200 font-medium">
-                            <Leaf size={11} /> Veg
+                            <Leaf size={11} /> {t.veg}
                           </span>
                         )}
                         {item.is_spicy && (
                           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-500 border border-red-200 font-medium">
-                            <Flame size={11} /> Spicy
+                            <Flame size={11} /> {t.spicy}
                           </span>
                         )}
                       </div>
 
-                      {/* Description */}
                       {item.description && (
                         <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-2">{item.description}</p>
                       )}
 
-                      {/* Prep time */}
                       {item.prep_time && (
                         <div className="flex items-center gap-1 text-xs text-gray-400 mb-3">
                           <Clock size={12} />
-                          <span>Ready in ~{item.prep_time} mins</span>
+                          <span>{t.readyIn(item.prep_time)}</span>
                         </div>
                       )}
 
-                      {/* Add to cart */}
                       {inCart ? (
                         <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                           <button onClick={() => updateQty(item.id, -1)}
                             className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-all">
                             <Minus size={14} />
                           </button>
-                          <span className="font-bold text-amber-600">{inCart.qty} in cart</span>
+                          <span className="font-bold text-amber-600 text-sm">{t.inCart(inCart.qty)}</span>
                           <button onClick={() => updateQty(item.id, 1)}
                             className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-all">
                             <Plus size={14} />
@@ -270,7 +278,7 @@ export default function MenuPage() {
                           onClick={() => addToCart(item)}
                           className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-semibold py-2.5 rounded-xl text-sm transition-all"
                         >
-                          <Plus size={16} /> Add to Cart
+                          <Plus size={16} /> {t.addToCart}
                         </button>
                       )}
                     </div>
@@ -282,7 +290,7 @@ export default function MenuPage() {
         )}
       </div>
 
-      {/* ── Cart Drawer ───────────────────────────────────────────────── */}
+      {/* ── Cart Drawer ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {cartOpen && (
           <>
@@ -293,27 +301,59 @@ export default function MenuPage() {
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
               className="fixed right-0 top-0 bottom-0 w-full max-w-sm bg-white z-50 flex flex-col shadow-2xl"
             >
+              {/* Cart Header */}
               <div className="flex justify-between items-center px-5 py-4 border-b">
-                <h2 className="text-lg font-bold text-gray-900">Your Order</h2>
+                <div className="flex items-center gap-2">
+                  <ShoppingCart size={20} className="text-amber-500" />
+                  <h2 className="text-lg font-bold text-gray-900">{t.yourCart}</h2>
+                  {totalItems > 0 && (
+                    <span className="bg-amber-100 text-amber-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                      {totalItems}
+                    </span>
+                  )}
+                </div>
                 <button onClick={() => setCartOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                   <X size={20} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Order Type Tabs */}
+              <div className="px-5 pt-4 pb-2 flex gap-2">
+                {[
+                  { key: 'pickup',   label: t.pickup },
+                  { key: 'dine_in',  label: t.dineIn },
+                  { key: 'delivery', label: t.delivery },
+                ].map(({ key, label }) => (
+                  <button key={key} onClick={() => setOrderType(key)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all
+                      ${orderType === key ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Cart Items */}
+              <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
                 {cart.length === 0 ? (
                   <div className="text-center py-12">
-                    <ShoppingCart size={40} className="text-gray-200 mx-auto mb-3" />
-                    <p className="text-gray-400">Your cart is empty</p>
+                    <ShoppingCart size={44} className="text-gray-200 mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm">{t.cartEmpty}</p>
                   </div>
                 ) : (
                   cart.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 py-2 border-b border-gray-50">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-800 text-sm">{item.name}</p>
-                        <p className="text-amber-500 font-semibold text-sm">€{(item.price * item.qty).toFixed(2)}</p>
+                    <div key={item.id} className="flex items-center gap-3 py-3 border-b border-gray-50">
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                        {item.image_url
+                          ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-xl">🍽️</div>
+                        }
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{item.name}</p>
+                        <p className="text-xs text-gray-400">€{Number(item.price).toFixed(2)} × {item.qty}</p>
+                        <p className="text-amber-500 font-bold text-sm">€{(item.price * item.qty).toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
                         <button onClick={() => updateQty(item.id, -1)}
                           className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50">
                           <Minus size={12} />
@@ -323,44 +363,42 @@ export default function MenuPage() {
                           className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center text-white hover:bg-amber-600">
                           <Plus size={12} />
                         </button>
+                        <button onClick={() => removeFromCart(item.id)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 ml-1">
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
                   ))
                 )}
               </div>
 
+              {/* Cart Footer */}
               {cart.length > 0 && (
-                <div className="px-5 py-4 border-t bg-gray-50 space-y-3">
-                  {/* Order Type */}
-                  <div className="flex gap-2">
-                    {['pickup', 'dine_in'].map(t => (
-                      <button key={t} onClick={() => setOrderType(t)}
-                        className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all
-                          ${orderType === t ? 'bg-amber-500 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                        {t === 'pickup' ? '🥡 Pickup' : '🪑 Dine In'}
-                      </button>
-                    ))}
+                <div className="px-5 py-4 border-t bg-gray-50 space-y-2.5">
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>{t.subtotal}</span>
+                    <span>€{subtotal.toFixed(2)}</span>
                   </div>
-
-                  <input className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-                    placeholder="Your name *" value={customerName} onChange={e => setCustomerName(e.target.value)} />
-
-                  {orderType === 'dine_in' && (
-                    <input className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-                      placeholder="Table number *" value={tableNum} onChange={e => setTableNum(e.target.value)} />
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>{t.tax}</span>
+                    <span>€{tax.toFixed(2)}</span>
+                  </div>
+                  {orderType === 'delivery' && (
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>{t.deliveryFee}</span>
+                      <span>€{deliveryFee.toFixed(2)}</span>
+                    </div>
                   )}
-
-                  <input className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-                    placeholder="Kitchen notes (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
-
-                  <div className="flex justify-between items-center pt-1">
-                    <span className="text-gray-600 font-medium">Total</span>
-                    <span className="text-xl font-bold text-amber-500">€{totalPrice.toFixed(2)}</span>
+                  <div className="flex justify-between items-center pt-1 border-t border-gray-200">
+                    <span className="font-bold text-gray-800">{t.total}</span>
+                    <span className="text-xl font-bold text-amber-500">€{total.toFixed(2)}</span>
                   </div>
-
-                  <button onClick={placeOrder} disabled={placing}
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                    {placing ? 'Placing order...' : <><span>Place Order</span><ChevronRight size={16} /></>}
+                  <button
+                    onClick={goToCheckout}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    {t.proceedToCheckout} →
                   </button>
                 </div>
               )}
