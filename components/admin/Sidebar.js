@@ -1,7 +1,7 @@
 'use client'
 import Link        from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, FolderOpen, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, FolderOpen, BarChart3, LogOut, Settings } from 'lucide-react'
 
 const links = [
   { href: '/admin',            label: 'Dashboard',  Icon: LayoutDashboard },
@@ -9,6 +9,7 @@ const links = [
   { href: '/admin/menu',       label: 'Menu Items', Icon: UtensilsCrossed },
   { href: '/admin/categories', label: 'Categories', Icon: FolderOpen      },
   { href: '/admin/reports',    label: 'Reports',    Icon: BarChart3       },
+  { href: '/admin/settings',   label: 'Settings',   Icon: Settings        },
 ]
 
 export default function AdminSidebar() {
@@ -17,7 +18,7 @@ export default function AdminSidebar() {
 
   async function logout() {
     await fetch('/api/auth/login', { method: 'DELETE' })
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   return (

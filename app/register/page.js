@@ -36,7 +36,7 @@ export default function RegisterPage() {
     // Save name for checkout pre-fill
     if (name) localStorage.setItem('restaurate_customer_name', name)
 
-    router.push('/menu')
+    window.location.href = '/menu'
   }
 
   const inputCls = 'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white transition-all'

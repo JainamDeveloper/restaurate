@@ -31,7 +31,8 @@ export default function LoginPage() {
     // Save customer name to localStorage for checkout pre-fill
     if (data.name) localStorage.setItem('restaurate_customer_name', data.name)
 
-    router.push(data.role === 'admin' ? '/admin' : '/menu')
+    // Hard redirect so middleware picks up the new session cookies
+    window.location.href = data.role === 'admin' ? '/admin' : '/menu'
   }
 
   const inputCls = 'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white transition-all'
