@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { motion }              from 'framer-motion'
-import { Pencil, ToggleLeft, ToggleRight, Plus } from 'lucide-react'
+import { Pencil, ToggleLeft, ToggleRight, Plus, Trash2 } from 'lucide-react'
 import Link                    from 'next/link'
 
 export default function MenuPage() {
@@ -9,11 +9,14 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch]   = useState('')
 
-  useEffect(() => {
-    fetch('/api/menu')
-      .then(r => r.json())
-      .then(d => { setMenu(d.data || []); setLoading(false) })
-  }, [])
+  async function loadMenu() {
+    const res  = await fetch('/api/admin/menu-items')
+    const data = await res.json()
+    setMenu(data.data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { loadMenu() }, [])
 
   async function toggleItem(itemId, currentVal) {
     await fetch(`/api/admin/menu-items/${itemId}`, {
@@ -21,10 +24,13 @@ export default function MenuPage() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ is_available: !currentVal }),
     })
-    // refresh
-    const res  = await fetch('/api/menu')
-    const data = await res.json()
-    setMenu(data.data || [])
+    loadMenu()
+  }
+
+  async function deleteItem(itemId) {
+    if (!confirm('Delete this item?')) return
+    await fetch(`/api/admin/menu-items/${itemId}`, { method: 'DELETE' })
+    loadMenu()
   }
 
   const filtered = menu.map(cat => ({
@@ -95,6 +101,11 @@ export default function MenuPage() {
                           className="text-slate-400 hover:text-white transition-colors">
                       <Pencil size={15} />
                     </Link>
+                    <button
+                      onClick={() => deleteItem(item.id)}
+                      className="text-slate-400 hover:text-red-400 transition-colors">
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
               ))}

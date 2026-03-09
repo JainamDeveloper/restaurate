@@ -2,8 +2,14 @@ import { NextResponse }              from 'next/server'
 import { supabaseAdmin }             from '@/lib/supabase'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
-// POST /api/orders — place order (public)
+// POST /api/orders — place order (requires login)
 export async function POST(req) {
+  const supabase = await createSupabaseServerClient()
+  const { data: authData } = await supabase.auth.getUser()
+  if (!authData?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await req.json()
   const { type, table_number, customer_name, customer_phone, kitchen_notes, items } = body
 
@@ -65,7 +71,8 @@ export async function POST(req) {
 // GET /api/orders — admin only
 export async function GET(req) {
   const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: authData2 } = await supabase.auth.getUser()
+  const user = authData2?.user
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

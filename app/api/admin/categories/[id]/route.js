@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 async function authCheck() {
   const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: _authData, error: _authErr } = await supabase.auth.getUser()
+  const user = _authData?.user
   return user
 }
 

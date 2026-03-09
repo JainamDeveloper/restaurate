@@ -4,9 +4,10 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 export async function PATCH(req, { params }) {
   const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  const user = authData?.user
 
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
 
@@ -24,9 +25,10 @@ export async function PATCH(req, { params }) {
 
 export async function DELETE(req, { params }) {
   const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: authData2, error: authError2 } = await supabase.auth.getUser()
+  const user = authData2?.user
 
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (authError2 || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { error } = await supabaseAdmin
     .from('menu_items')

@@ -4,9 +4,10 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: _authData, error: _authErr } = await supabase.auth.getUser()
+  const user = _authData?.user
 
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (_authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const today     = new Date().toISOString().split('T')[0]
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
